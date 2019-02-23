@@ -396,10 +396,24 @@ gst_v4l2_transform_transform_caps (GstBaseTransform * btrans,
     GstPadDirection direction, GstCaps * caps, GstCaps * filter)
 {
   GstCaps *tmp, *tmp2;
+  GstPad *pad;
   GstCaps *result;
 
+  /* gstbasetransform.h defines the transform caps as:
+   * "Given the pad in this direction and the given caps, what caps
+   *  are allowed on the other pad in this element ?"
+   * So, we need to get the opposite PAD in order to properly
+   * handle it.
+   */
+
+  if (direction == GST_PAD_SRC)
+    pad = GST_BASE_TRANSFORM_SINK_PAD (btrans);
+  else
+    pad = GST_BASE_TRANSFORM_SRC_PAD (btrans);
   /* Get all possible caps that we can transform to */
-  tmp = gst_v4l2_transform_caps_remove_format_info (caps);
+  tmp =
+      gst_v4l2_transform_caps_remove_format_info (gst_pad_get_pad_template_caps
+      (pad));
 
   if (filter) {
     tmp2 = gst_caps_intersect_full (filter, tmp, GST_CAPS_INTERSECT_FIRST);
