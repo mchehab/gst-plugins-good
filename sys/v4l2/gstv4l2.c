@@ -179,6 +179,7 @@ gst_v4l2_probe_and_register (GstPlugin * plugin)
 
     /* Skip devices without any supported formats */
     if (gst_caps_is_empty (sink_caps) || gst_caps_is_empty (src_caps)) {
+      GST_DEBUG ("Device has unsupported formats");
       gst_caps_unref (sink_caps);
       gst_caps_unref (src_caps);
       continue;
@@ -191,9 +192,11 @@ gst_v4l2_probe_and_register (GstPlugin * plugin)
     GST_MINI_OBJECT_FLAG_SET (src_caps, GST_MINI_OBJECT_FLAG_MAY_BE_LEAKED);
 
     if (gst_v4l2_is_video_dec (sink_caps, src_caps)) {
+      GST_DEBUG ("M2M device is a decoder");
       gst_v4l2_video_dec_register (plugin, basename, it->device_path,
           sink_caps, src_caps);
     } else if (gst_v4l2_is_video_enc (sink_caps, src_caps, NULL)) {
+      GST_DEBUG ("M2M device is an encoder");
       if (gst_v4l2_is_fwht_enc (sink_caps, src_caps))
         gst_v4l2_fwht_enc_register (plugin, basename, it->device_path,
             sink_caps, src_caps);
@@ -226,8 +229,11 @@ gst_v4l2_probe_and_register (GstPlugin * plugin)
         gst_v4l2_vp9_enc_register (plugin, basename, it->device_path,
             sink_caps, src_caps);
     } else if (gst_v4l2_is_transform (sink_caps, src_caps)) {
+      GST_DEBUG ("M2M device is a transform device: registering it as such...");
       gst_v4l2_transform_register (plugin, basename, it->device_path,
           sink_caps, src_caps);
+    } else {
+      GST_DEBUG ("M2M device not a known type. Ignoring it");
     }
     /* else if ( ... etc. */
 

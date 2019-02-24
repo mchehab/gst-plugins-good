@@ -1629,6 +1629,9 @@ gst_v4l2_object_get_caps_helper (GstV4L2FormatFlags flags)
           break;
       }
 
+      GST_DEBUG_OBJECT (structure, "format %" GST_FOURCC_FORMAT,
+          GST_FOURCC_ARGS (gst_v4l2_formats[i].format));
+
       gst_caps_append_structure (caps, structure);
 
       if (alt_s)
@@ -1664,6 +1667,7 @@ gst_v4l2_object_get_raw_caps (void)
     g_once_init_leave (&caps, raw_caps);
   }
 
+  GST_DEBUG ("caps %" GST_PTR_FORMAT, caps);
   return caps;
 }
 

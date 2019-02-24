@@ -200,6 +200,9 @@ gst_v4l2_transform_set_caps (GstBaseTransform * trans, GstCaps * incaps,
   if (self->disable_passthrough)
     gst_base_transform_set_passthrough (trans, FALSE);
 
+  GST_DEBUG (" incaps %" GST_PTR_FORMAT, incaps);
+  GST_DEBUG ("outcaps %" GST_PTR_FORMAT, outcaps);
+
   if (self->incaps && self->outcaps) {
     if (gst_caps_is_equal (incaps, self->incaps) &&
         gst_caps_is_equal (outcaps, self->outcaps)) {
@@ -227,6 +230,9 @@ gst_v4l2_transform_set_caps (GstBaseTransform * trans, GstCaps * incaps,
 
   if (!gst_v4l2_object_set_crop (self->v4l2capture))
     goto failed;
+
+  GST_DEBUG ("new  incaps %" GST_PTR_FORMAT, self->incaps);
+  GST_DEBUG ("new outcaps %" GST_PTR_FORMAT, self->outcaps);
 
   return TRUE;
 
@@ -266,30 +272,45 @@ gst_v4l2_transform_query (GstBaseTransform * trans, GstPadDirection direction,
       if (direction == GST_PAD_SRC) {
         pad = GST_BASE_TRANSFORM_SRC_PAD (trans);
         otherpad = GST_BASE_TRANSFORM_SINK_PAD (trans);
-        if (self->probed_srccaps)
+
+        GST_DEBUG (" GST_PAD_SRC: pad: %" GST_PTR_FORMAT, pad);
+        GST_DEBUG ("        other pad: %" GST_PTR_FORMAT, otherpad);
+
+        if (self->probed_srccaps) {
           caps = gst_caps_ref (self->probed_srccaps);
+          GST_DEBUG ("   probed src pad: %" GST_PTR_FORMAT, caps);
+        }
       } else {
         pad = GST_BASE_TRANSFORM_SINK_PAD (trans);
         otherpad = GST_BASE_TRANSFORM_SRC_PAD (trans);
-        if (self->probed_sinkcaps)
+
+        GST_DEBUG ("GST_PAD_SINK pad: %" GST_PTR_FORMAT, pad);
+        GST_DEBUG ("       other pad: %" GST_PTR_FORMAT, otherpad);
+
+        if (self->probed_sinkcaps) {
           caps = gst_caps_ref (self->probed_sinkcaps);
+          GST_DEBUG (" probed sink pad: %" GST_PTR_FORMAT, caps);
+        }
       }
 
-      if (!caps)
+      if (!caps) {
         caps = gst_pad_get_pad_template_caps (pad);
+        GST_DEBUG ("    template pad: %" GST_PTR_FORMAT, caps);
+      }
 
       if (filter) {
         GstCaps *tmp = caps;
         caps = gst_caps_intersect_full (filter, tmp, GST_CAPS_INTERSECT_FIRST);
         gst_caps_unref (tmp);
+        GST_DEBUG (" intersect caps: %" GST_PTR_FORMAT, caps);
       }
 
       result = gst_pad_peer_query_caps (otherpad, caps);
       result = gst_caps_make_writable (result);
+      GST_DEBUG ("        result: %" GST_PTR_FORMAT, result);
       gst_caps_append (result, caps);
 
-      GST_DEBUG_OBJECT (self, "Returning %s caps %" GST_PTR_FORMAT,
-          GST_PAD_NAME (pad), result);
+      GST_DEBUG ("append  result: %" GST_PTR_FORMAT, result);
 
       gst_query_set_caps_result (query, result);
       gst_caps_unref (result);
@@ -299,9 +320,11 @@ gst_v4l2_transform_query (GstBaseTransform * trans, GstPadDirection direction,
     default:
       ret = GST_BASE_TRANSFORM_CLASS (parent_class)->query (trans, direction,
           query);
+      GST_DEBUG ("Doing default transform");
       break;
   }
 
+  GST_DEBUG ("Returning %s", ret ? "True" : "False");
   return ret;
 }
 
@@ -364,6 +387,8 @@ gst_v4l2_transform_caps_remove_format_info (GstCaps * caps)
 
   res = gst_caps_new_empty ();
 
+  GST_DEBUG ("original caps %" GST_PTR_FORMAT, caps);
+
   n = gst_caps_get_size (caps);
   for (i = 0; i < n; i++) {
     st = gst_caps_get_structure (caps, i);
@@ -385,6 +410,8 @@ gst_v4l2_transform_caps_remove_format_info (GstCaps * caps)
     gst_caps_append_structure_full (res, st, gst_caps_features_copy (f));
   }
 
+  GST_DEBUG ("     filter %" GST_PTR_FORMAT, res);
+
   return res;
 }
 
@@ -399,6 +426,9 @@ gst_v4l2_transform_transform_caps (GstBaseTransform * btrans,
   GstPad *pad;
   GstCaps *result;
 
+  GST_DEBUG ("direction: %s", direction == GST_PAD_SRC ? "Source" : "Sink");
+  GST_DEBUG ("intersect from caps   %" GST_PTR_FORMAT, caps);
+  GST_DEBUG ("intersect with filter %" GST_PTR_FORMAT, filter);
   /* gstbasetransform.h defines the transform caps as:
    * "Given the pad in this direction and the given caps, what caps
    *  are allowed on the other pad in this element ?"
@@ -410,10 +440,15 @@ gst_v4l2_transform_transform_caps (GstBaseTransform * btrans,
     pad = GST_BASE_TRANSFORM_SINK_PAD (btrans);
   else
     pad = GST_BASE_TRANSFORM_SRC_PAD (btrans);
+  GST_DEBUG ("intersect from pad   %" GST_PTR_FORMAT,
+      gst_pad_get_pad_template_caps (pad));
+
   /* Get all possible caps that we can transform to */
   tmp =
       gst_v4l2_transform_caps_remove_format_info (gst_pad_get_pad_template_caps
       (pad));
+
+  GST_DEBUG ("cleaned intersect     %" GST_PTR_FORMAT, tmp);
 
   if (filter) {
     tmp2 = gst_caps_intersect_full (filter, tmp, GST_CAPS_INTERSECT_FIRST);
@@ -423,8 +458,8 @@ gst_v4l2_transform_transform_caps (GstBaseTransform * btrans,
 
   result = tmp;
 
-  GST_DEBUG_OBJECT (btrans, "transformed %" GST_PTR_FORMAT " into %"
-      GST_PTR_FORMAT, caps, result);
+  GST_DEBUG ("transformed %" GST_PTR_FORMAT, caps);
+  GST_DEBUG ("       into %" GST_PTR_FORMAT, result);
 
   return result;
 }
@@ -898,6 +933,7 @@ gst_v4l2_transform_prepare_output_buffer (GstBaseTransform * trans,
   GstFlowReturn ret = GST_FLOW_OK;
   GstBaseTransformClass *bclass = GST_BASE_TRANSFORM_CLASS (parent_class);
 
+  GST_DEBUG_OBJECT (trans, "Trans buffer");
   if (gst_base_transform_is_passthrough (trans)) {
     GST_DEBUG_OBJECT (self, "Passthrough, no need to do anything");
     *outbuf = inbuf;
@@ -1108,9 +1144,6 @@ gst_v4l2_transform_class_init (GstV4l2TransformClass * klass)
   gobject_class = (GObjectClass *) klass;
   base_transform_class = (GstBaseTransformClass *) klass;
 
-  GST_DEBUG_CATEGORY_INIT (gst_v4l2_transform_debug, "v4l2transform", 0,
-      "V4L2 Converter");
-
   gst_element_class_set_static_metadata (element_class,
       "V4L2 Video Converter",
       "Filter/Converter/Video/Scaler",
@@ -1201,6 +1234,8 @@ gst_v4l2_transform_register (GstPlugin * plugin, const gchar * basename,
   gchar *type_name;
   GstV4l2TransformCData *cdata;
 
+  GST_DEBUG_CATEGORY_INIT (gst_v4l2_transform_debug, "v4l2transform", 0,
+      "V4L2 Converter");
   cdata = g_new0 (GstV4l2TransformCData, 1);
   cdata->device = g_strdup (device_path);
   cdata->sink_caps = gst_caps_ref (sink_caps);
@@ -1220,6 +1255,10 @@ gst_v4l2_transform_register (GstPlugin * plugin, const gchar * basename,
   else
     type_name = g_strdup ("v4l2convert");
   subtype = g_type_register_static (type, type_name, &type_info, 0);
+
+  GST_DEBUG ("device name: %s", type_name);
+  GST_DEBUG ("sink (input) caps %" GST_PTR_FORMAT, sink_caps);
+  GST_DEBUG ("source (output) caps %" GST_PTR_FORMAT, src_caps);
 
   if (!gst_element_register (plugin, type_name, GST_RANK_NONE, subtype))
     GST_WARNING ("Failed to register plugin '%s'", type_name);
